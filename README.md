@@ -9,7 +9,7 @@
 - `index.html` + `data.js` — 서버 없이 동작하는 정적 사이트
 
 ## 배포 주소
-(Cloudflare Pages 배포 후 추가)
+https://fire-119.pages.dev/  (Cloudflare Pages, J1N6RYU 계정)
 
 ## 데이터 출처
 소방청 화재현황·소방대상물 현황, 강원특별자치도 소방용수시설(2025-12-31), 행정안전부 주민등록 인구(2026.09)
