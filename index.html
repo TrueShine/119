@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>119 화재 데이터 대시보드</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{--bg:#faf8f5;--card:#fff;--ink:#1d1b19;--mute:#6b665f;--line:#e6e1d9;--red:#d93a2b;--org:#f08a24;--blue:#2f6fb5;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#161412;--card:#201d1a;--ink:#f1ede7;--mute:#9a948b;--line:#383330;--red:#ff6a58;--org:#ffa04a;--blue:#6aa5e8;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"Pretendard","Noto Sans KR",sans-serif}
+header{padding:20px 16px 8px;max-width:1100px;margin:auto}h1{margin:0;font-size:22px}h1 b{color:var(--red)}.sub{color:var(--mute);font-size:13px}
+nav{display:flex;gap:6px;overflow-x:auto;padding:8px 16px;max-width:1100px;margin:auto;position:sticky;top:0;background:var(--bg);z-index:900}
+nav button{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:999px;cursor:pointer;white-space:nowrap;font:inherit}
+nav button.on{background:var(--red);border-color:var(--red);color:#fff}
+main{max-width:1100px;margin:auto;padding:8px 16px 48px}section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+.card h2{margin:0 0 4px;font-size:16px}.note{color:var(--mute);font-size:12.5px;margin:2px 0 8px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}.kpi small{color:var(--mute)}.kpi b{display:block;font-size:24px}
+.up{color:var(--red)}.dn{color:var(--blue)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.cv{position:relative;height:280px}#map{height:480px;border-radius:10px;border:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th:first-child,td:first-child{text-align:left}
+.tw{overflow-x:auto}select{font:inherit;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.hm{display:grid;gap:2px;font-size:11px;overflow-x:auto}.hm div{min-height:22px;display:flex;align-items:center;justify-content:center;border-radius:3px}.hm .l{justify-content:flex-start;color:var(--mute);white-space:nowrap;padding-right:6px}
+.tip{border-left:4px solid var(--org);padding:8px 12px;background:var(--bg);border-radius:6px;margin:8px 0}
+.bar{height:8px;background:var(--red);border-radius:4px}
+</style>
+</head>
+<body>
+<header><h1><b>119</b> 화재 데이터 대시보드</h1><div class="sub">소방청 화재현황 2024–2025 · 강원 소방용수시설 · 주민등록 인구(2026.09) · 건당 7.6만 건 분석</div></header>
+<nav id="nav"></nav>
+<main>
+<section id="s0">
+  <div class="kpis" id="mapKpi"></div>
+  <div class="card"><h2>강원 소방 취약지도</h2>
+    <div class="note">원 = 시군구(용수시설 중심 위치). 색이 붉을수록 화재 대비 용수시설이 부족. 파란 열지도 = 용수시설 분포. 화재 데이터는 시군구 단위까지만 제공되어 시군구별로 집계했습니다.</div>
+    <label>지표 <select id="mapMetric"></select></label>
+    <div id="map" style="margin-top:8px"></div></div>
+  <div class="card"><h2>시군구 순위</h2><div class="tw"><table id="mapTbl"></table></div>
+    <div class="note">시설 100개당 화재 = (2024+2025 화재 건수) ÷ 용수시설 수 × 100. 노후 = 설치 25년 이상. 저압 = 출수압력 3 미만. 소방대상물은 2025년 등록분만 포함된 파일입니다.</div></div>
+</section>
+<section id="s1">
+  <div class="kpis" id="goldKpi"></div>
+  <div class="grid2">
+    <div class="card"><h2>시간대별 도착 소요(중앙값, 분)</h2><div class="note">신고 접수 → 현장 도착</div><div class="cv"><canvas id="gHour"></canvas></div></div>
+    <div class="card"><h2>시도별 도착 소요(중앙값, 분)</h2><div class="cv"><canvas id="gSido"></canvas></div></div>
+  </div>
+  <div class="card"><h2>월별 도착 소요(중앙값, 분)</h2><div class="cv"><canvas id="gMon"></canvas></div></div>
+</section>
+<section id="s2">
+  <div class="card"><h2>화재 원인 달력</h2>
+    <label>보기 <select id="calSel"></select></label>
+    <div id="hm" style="margin-top:10px"></div><div class="note" id="hmNote"></div></div>
+</section>
+<section id="s3">
+  <div class="card"><label>시도 <select id="rSido"></select></label> <label>시군구 <select id="rSgg"></select></label></div>
+  <div id="rep"></div>
+</section>
+<section id="s4">
+  <div class="kpis" id="yoyKpi"></div>
+  <div class="note">※ 2025년 재산피해 급증은 경북 의성군 산불 1건(약 1.2조원)과 산불·대형 창고화재가 절반 이상을 차지합니다. 단위는 소방청 원자료(천원) 기준.</div>
+  <div class="grid2">
+    <div class="card"><h2>월별 화재 건수</h2><div class="cv"><canvas id="yMon"></canvas></div></div>
+    <div class="card"><h2>발화요인별</h2><div class="cv"><canvas id="yCause"></canvas></div></div>
+  </div>
+  <div class="card"><h2>시도별 증감</h2><div class="tw"><table id="yTbl"></table></div></div>
+</section>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+<script src="data.js"></script>
+<script>
+const $=s=>document.querySelector(s),f=n=>n==null?'-':Number(n).toLocaleString('ko-KR');
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const PAL=['#d93a2b','#f08a24','#e8c33a','#4c9f70','#2f6fb5','#7a5bb5','#b5527a','#8a8378'];
+const tabs=['강원 취약지도','골든타임','원인 달력','우리 동네','연도 비교'];
+tabs.forEach((t,i)=>{const b=document.createElement('button');b.textContent=t;b.onclick=()=>go(i);$('#nav').append(b)});
+const done={};function go(i){document.querySelectorAll('nav button').forEach((b,j)=>b.classList.toggle('on',i==j));document.querySelectorAll('section').forEach((s,j)=>s.classList.toggle('on',i==j));if(!done[i]){done[i]=1;init[i]()}if(i==0)setTimeout(()=>map&&map.invalidateSize(),50)}
+const ch=(id,cfg)=>{cfg.options={responsive:true,maintainAspectRatio:false,...cfg.options};return new Chart($(id),cfg)};
+const kpi=(el,a)=>$(el).innerHTML=a.map(([l,v,s])=>`<div class="kpi"><small>${l}</small><b>${v}</b><small>${s||''}</small></div>`).join('');
+const delta=(a,b)=>{const p=(b-a)/a*100;return `<span class="${p>0?'up':'dn'}">${p>0?'▲':'▼'} ${Math.abs(p).toFixed(1)}%</span>`};
+let map;
+const init=[
+()=>{ // map
+  const M=D.map,tot=M.reduce((a,m)=>a+m.fac,0);
+  kpi('#mapKpi',[['용수시설',f(tot)+'개','강원 18개 시군'],['2년간 화재',f(M.reduce((a,m)=>a+m.fires,0))+'건','2024–2025'],['가장 취약',M[0].sgg,'시설 100개당 화재 '+M[0].per100+'건'],['노후(25년+)',f(M.reduce((a,m)=>a+m.old,0))+'개','교체 우선 검토']]);
+  map=L.map('map').setView([37.8,128.2],8);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+  setTimeout(()=>{map.invalidateSize();map.setView([37.8,128.2],9);L.heatLayer(D.pts,{radius:9,blur:12,maxZoom:11,gradient:{.3:'#9cc4ee',.7:'#2f6fb5',1:'#173d6b'}}).addTo(map)},100);
+  const metrics={per100:['시설 100개당 화재',m=>m.per100],fires:['화재 건수',m=>m.fires],old:['노후 시설 수',m=>m.old],low:['저압 시설 수',m=>m.low],resp:['도착 소요(분)',m=>m.resp]};
+  $('#mapMetric').innerHTML=Object.entries(metrics).map(([k,v])=>`<option value="${k}">${v[0]}</option>`).join('');
+  let grp=L.layerGroup().addTo(map);
+  const draw=()=>{grp.clearLayers();const [lab,g]=metrics[$('#mapMetric').value],vals=M.map(g),mx=Math.max(...vals),mn=Math.min(...vals);
+    M.forEach(m=>{const v=g(m),t=(v-mn)/(mx-mn||1);
+      L.circleMarker([m.lat,m.lon],{radius:10+t*20,color:'#fff',weight:1.5,fillColor:`hsl(${25-25*t},85%,${58-12*t}%)`,fillOpacity:.85})
+      .bindPopup(`<b>${m.sgg}</b><br>${lab}: <b>${v}</b><br>화재 ${m.fires}건 (산불·임야 ${m.forest}) · 용수시설 ${m.fac}개<br>노후 ${m.old} · 저압 ${m.low}<br>주요 원인: ${D.gwCause[m.sgg].map(c=>c[0]+' '+c[1]).join(', ')}`).addTo(grp)
+      .bindTooltip(m.sgg+' '+v,{permanent:true,direction:'center',className:'lbl'})})};
+  $('#mapMetric').onchange=draw;draw();
+  $('#mapTbl').innerHTML='<tr><th>시군구</th><th>화재</th><th>용수시설</th><th>100개당</th><th>노후</th><th>저압</th><th>도착(분)</th><th>2025 등록 대상물</th></tr>'+M.map(m=>`<tr><td>${m.sgg}</td><td>${m.fires}</td><td>${m.fac}</td><td><b>${m.per100}</b></td><td>${m.old}</td><td>${m.low}</td><td>${m.resp??'-'}</td><td>${m.bld}</td></tr>`).join('');
+},
+()=>{ // golden
+  const G=D.gold,hrs=[...Array(24).keys()];
+  kpi('#goldKpi',[['10분 초과 도착',G.over10+'%','접수→도착'],['도시(시·구)',G.byKind['시(도시)']+'분','중앙값'],['농어촌(군)',G.byKind['군(농어촌)']+'분','중앙값'],['격차',(G.byKind['군(농어촌)']-G.byKind['시(도시)']).toFixed(1)+'분','군 − 시']]);
+  ch('#gHour',{type:'line',data:{labels:hrs.map(h=>h+'시'),datasets:Object.entries(G.byKindHour).map(([k,v],i)=>({label:k,data:v,borderColor:PAL[i*4],backgroundColor:PAL[i*4],tension:.3,pointRadius:2}))}});
+  const S=[...D.sido].filter(s=>s.resp).sort((a,b)=>b.resp-a.resp);
+  ch('#gSido',{type:'bar',data:{labels:S.map(s=>s.short),datasets:[{data:S.map(s=>s.resp),backgroundColor:S.map(s=>s.resp>7?PAL[0]:PAL[4])}]},options:{indexAxis:'y',plugins:{legend:{display:false}}}});
+  ch('#gMon',{type:'bar',data:{labels:Object.keys(G.byMonth).map(m=>m+'월'),datasets:[{data:Object.values(G.byMonth),backgroundColor:PAL[1]}]},options:{plugins:{legend:{display:false}}}});
+},
+()=>{ // calendar
+  const C=D.cal,mo=[...Array(12)].map((_,i)=>i+1+'월'),hr=[...Array(24)].map((_,i)=>i+'시'),wd=['월','화','수','목','금','토','일'],tp=C.tempBins.map(b=>b+'℃~');
+  const V={
+    '월 × 시간대 (전체)':[mo,hr,C.monHr,false],
+    '발화요인 × 월':[C.causes,mo,C.monCause,true],
+    '발화요인 × 시간대':[C.causes,hr,C.hrCause,true],
+    '발화요인 × 요일':[C.causes,wd,C.wdCause,true],
+    '발화요인 × 기온(5℃ 구간)':[C.causes,tp,C.tempCause,true]};
+  $('#calSel').innerHTML=Object.keys(V).map(k=>`<option>${k}</option>`).join('');
+  const draw=()=>{const [R,Cc,M,row]=V[$('#calSel').value],gmx=Math.max(...M.flat());
+    let h=`<div class="hm" style="grid-template-columns:90px repeat(${Cc.length},minmax(30px,1fr))"><div></div>`+Cc.map(c=>`<div class="l" style="justify-content:center">${c}</div>`).join('');
+    M.forEach((r,i)=>{const mx=row?Math.max(...r):gmx;h+=`<div class="l">${R[i]}</div>`+r.map((v,j)=>`<div title="${R[i]} ${Cc[j]}: ${f(v)}건" style="background:rgba(217,58,43,${(.08+.92*v/(mx||1)).toFixed(2)});color:${v/(mx||1)>.55?'#fff':'inherit'}">${v>=1000?(v/1000).toFixed(1)+'k':v}</div>`).join('')});
+    $('#hm').innerHTML=h+'</div>';$('#hmNote').textContent=row?'행별로 최댓값 기준 색상(요인마다 가장 많은 구간이 가장 진함). 숫자 = 2024–2025 합계 건수.':'색이 진할수록 건수가 많음. 숫자 = 2024–2025 합계 건수.'};
+  $('#calSel').onchange=draw;draw();
+},
+()=>{ // report
+  const R=D.reports,sd=[...new Set(Object.values(R).map(r=>r.sido))].sort(),TIPS={'부주의':'조리·담배·불씨 방치가 가장 흔한 원인입니다. 불 켜 두고 자리 비우지 않기.','전기적 요인':'멀티탭 문어발, 노후 배선, 과부하를 점검하세요.','기계적 요인':'보일러·모터 등 기기 과열과 정비 불량을 점검하세요.','화학적 요인':'가연성 물질 보관과 환기에 유의하세요.','교통사고':'차량 소화기를 비치하세요.','자연적인 요인':'낙뢰·건조한 날씨에 주의하세요.'};
+  $('#rSido').innerHTML=sd.map(s=>`<option>${s}</option>`).join('');$('#rSido').value='강원특별자치도';
+  const fill=()=>{$('#rSgg').innerHTML=Object.values(R).filter(r=>r.sido==$('#rSido').value).sort((a,b)=>a.sgg.localeCompare(b.sgg,'ko')).map(r=>`<option>${r.sgg}</option>`).join('');show()};
+  let cs=[];const show=()=>{cs.forEach(c=>c.destroy());cs=[];const r=R[$('#rSido').value+' '+$('#rSgg').value],sdo=D.sido.find(s=>s.name==r.sido),nat=D.gold.byKind;
+    const pk=sdo.per10k;
+    $('#rep').innerHTML=`<div class="kpis"><div class="kpi"><small>2025 화재</small><b>${f(r.n25)}건</b><small>2024: ${f(r.n24)}건 ${delta(r.n24||1,r.n25)}</small></div>
+    <div class="kpi"><small>인명피해(2년)</small><b>사망 ${r.dth} · 부상 ${r.inj}</b></div><div class="kpi"><small>재산피해(2년)</small><b>${f(Math.round(r.dam/1e4)/10)}억원</b><small>단위 천원 환산</small></div>
+    <div class="kpi"><small>도착 소요(중앙값)</small><b>${r.resp??'-'}분</b></div>
+    <div class="kpi"><small>${sdo.short} 인구 1만명당 (2025)</small><b>${pk??'-'}건</b><small>시도 단위</small></div></div>
+    <div class="tip"><b>가장 많은 원인: ${r.causes[0][0]}</b> (${r.causes[0][1]}건, ${(r.causes[0][1]/(r.n24+r.n25)*100).toFixed(0)}%). ${TIPS[r.causes[0][0]]||'원인 미상 비율이 높아 조사 강화가 필요한 지역입니다.'}</div>
+    <div class="grid2"><div class="card"><h2>발화요인</h2><div class="cv"><canvas id="r1"></canvas></div></div><div class="card"><h2>발생 장소</h2><div class="cv"><canvas id="r2"></canvas></div></div>
+    <div class="card"><h2>월별</h2><div class="cv"><canvas id="r3"></canvas></div></div><div class="card"><h2>시간대별</h2><div class="cv"><canvas id="r4"></canvas></div></div></div>`;
+    const bar=(id,l,v,c,h)=>cs.push(ch(id,{type:'bar',data:{labels:l,datasets:[{data:v,backgroundColor:c}]},options:{indexAxis:h?'y':'x',plugins:{legend:{display:false}}}}));
+    bar('#r1',r.causes.map(c=>c[0]),r.causes.map(c=>c[1]),PAL[0],1);bar('#r2',r.places.map(c=>c[0]),r.places.map(c=>c[1]),PAL[1],1);
+    bar('#r3',r.mon.map((_,i)=>i+1+'월'),r.mon,PAL[4]);bar('#r4',r.hr.map((_,i)=>i+'시'),r.hr,PAL[3])};
+  $('#rSido').onchange=fill;$('#rSgg').onchange=show;fill();
+},
+()=>{ // yoy
+  const Y=D.yoy;
+  kpi('#yoyKpi',[['화재 건수',f(Y.tot[1])+'건',`2024 ${f(Y.tot[0])} ${delta(Y.tot[0],Y.tot[1])}`],['사망',f(Y.dth[1])+'명',`2024 ${f(Y.dth[0])} ${delta(Y.dth[0],Y.dth[1])}`],['부상',f(Y.inj[1])+'명',`2024 ${f(Y.inj[0])} ${delta(Y.inj[0],Y.inj[1])}`],['재산피해',f(Y.dam[1])+'억',`2024 ${f(Y.dam[0])}억 ${delta(Y.dam[0],Y.dam[1])}`]]);
+  const m=[...Array(12)].map((_,i)=>i+1+'월');
+  ch('#yMon',{type:'line',data:{labels:m,datasets:[{label:'2024',data:Y.mon24,borderColor:PAL[7],tension:.3},{label:'2025',data:Y.mon25,borderColor:PAL[0],tension:.3}]}});
+  const k=Object.keys(Y.cause);
+  ch('#yCause',{type:'bar',data:{labels:k,datasets:[{label:'2024',data:k.map(c=>Y.cause[c][0]),backgroundColor:PAL[7]},{label:'2025',data:k.map(c=>Y.cause[c][1]),backgroundColor:PAL[0]}]}});
+  $('#yTbl').innerHTML='<tr><th>시도</th><th>2024</th><th>2025</th><th>증감</th><th>인구 1만명당(2025)</th><th>사망(2025)</th></tr>'+[...D.sido].sort((a,b)=>b.n25-a.n25).map(s=>`<tr><td>${s.name}</td><td>${f(s.n24)}</td><td>${f(s.n25)}</td><td>${delta(s.n24,s.n25)}</td><td>${s.per10k??'-'}</td><td>${s.dth}</td></tr>`).join('');
+}];
+const st=document.createElement('style');st.textContent='.lbl{background:none;border:none;box-shadow:none;font-weight:600;font-size:11px;color:#000;text-shadow:0 0 3px #fff}.lbl:before{display:none}';document.head.append(st);
+go(0);
+</script>
+</body>
+</html>
